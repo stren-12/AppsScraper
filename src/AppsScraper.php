@@ -1,5 +1,4 @@
 <?php
-namespace AppsScraper;
 use Sunra\PhpSimple\HtmlDomParser;
 
 /**
@@ -9,7 +8,7 @@ use Sunra\PhpSimple\HtmlDomParser;
  * This Class Used to Scrap data from app web page in the supported stores
  * with no need to worry about different html page layout
  * Also its have the ability to auto-detect the store from the app id without need to define it
- *y 
+ * 
  * @package	AppsScraper
  * @version 1.0
  * @author  strn-12 <smagsf@gmail.com>

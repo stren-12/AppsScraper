@@ -11,14 +11,17 @@ with no need to worry about different html page layout
 First you need to install HtmlDomParser by composer
 
 ```bash
-composer require sunra/php-simple-html-dom-parser    
+composer require stren-12/apps-scraper   
 ```
 
 then in php code 
 ```php
-require_once '/libraries/AppsScraper.php'
+use AppsScraper\AppsScraper;
 $AppsScraper = new AppsScraper('com.google.android.youtube');
 echo var_dump($AppsScraper->GetAppData())
 /* output: array(4) { ["image"]=> string(106) "https://lh3.googleusercontent.com/lMoItBgdPPVDJsNOVtP26EKHePkwBg-PkuY9NOrc-fumRtTFP4XhpUNk_22syN4Datc=s180" 
 ["title"]=> string(8) "YouTube " ["rate"]=> string(3) "4.1" ["price"]=> NULL } */
 ```
+
+## Note
+There is a lot of Methods in the library, it's well documented take your time looking for it

@@ -1,7 +1,7 @@
 <?php
 namespace AppsScraper;
-use Sunra\PhpSimple\HtmlDomParser;
 
+use \Wa72\HtmlPageDom\HtmlPageCrawler;
 /**
  * AppsScraper
  *  
@@ -12,8 +12,8 @@ use Sunra\PhpSimple\HtmlDomParser;
  * 
  * @package AppsScraper
  * @version 1.1
- * @author  strn-12 <smagsf@gmail.com>
- * @license https://opensource.org/licenses/MIT MIT License
+ * @author  Sultan Aljohani <stren-12.com , sultanfahad.sa>
+ * @license https://    opensource.org/licenses/MIT MIT License
  * @link    https://github.com/stren-12/AppsScraper
  */
 
@@ -22,7 +22,7 @@ use Sunra\PhpSimple\HtmlDomParser;
 class AppsScraper
 {
 
-    /**
+    /*
      * HTTP Accept Languge Header 
      * if you want to retreve non-english version of the app use this header 
      * 
@@ -54,7 +54,6 @@ class AppsScraper
 
     /**
      * Document Object Model (DOM) 
-     * this will be 
      * 
      * @link https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Introduction
      * @var object
@@ -90,13 +89,16 @@ class AppsScraper
      */ 
     protected $AppData = [
         'image' => null, 
-        'title' => null,
-        'rate'  => null,
-        'price' => null
+        'name' => null,
+        'rating'  => null,
+        'price' => null,
+        'description' => null,
+        'operatingSystem' => null,
+        'author' => null
     ];
 
     /**
-     * App Stores Data
+     * Stores Data
      * base url, Regex for auto-detect and elements selector (Jquery like)
      * @var array
      */ 
@@ -104,22 +106,13 @@ class AppsScraper
         'GooglePlay' =>[
             'url' => 'https://play.google.com/store/apps/details?id=%s' ,
             'regex' => '/^[[^.A-z]+$/',
-            'elements' => [
-                'image' => 'img', 
-                'title' => 'h1[class=AHFaub]',
-                'rate' => '.BHMmbe',
-                'price' => 'meta[itemprop="price"]'
-            ]
+            'schema' => 'script[type="application/ld+json"]',
+          
         ],
         'AppStore' => [
             'url' => 'https://apps.apple.com/app/id%u',
             'regex' =>'/^[0-9]+$/',
-            'elements' => [
-                'image' => 'img', 
-                'title' => 'meta[property="og:title"]',
-                'rate' => '.we-customer-ratings__averages__display',
-                'price' => 'li[class="inline-list__item inline-list__item--bulleted app-header__list__item--price"]'
-            ]
+            'schema' => 'script[name="schema:software-application"]',
         ]
     ];
     
@@ -133,6 +126,7 @@ class AppsScraper
      * @param   string  $AppId
      * @param   string  $TargtedStore = ""
      * @param   string  $AcceptLanguage = ""
+     * @param 	bool $Debug = false
      * @return  void
      */
     public function __construct($AppId,$TargtedStore = "",$AcceptLanguage = "",$Debug = false)
@@ -146,8 +140,18 @@ class AppsScraper
             $this->SetError("$AppId Is Not valid AppId");
             return;
         }
-        if (! function_exists('curl_version')){
-            $this->SetError("Curl is missing");
+        if (! extension_loaded('curl')){
+            $this->SetError("php curl extension is missing");
+            return;
+        }
+
+        if (! extension_loaded('xml')){
+            $this->SetError("php xml extension is missing");
+            return;
+        }
+
+        if (! extension_loaded('dom')){
+            $this->SetError("php dom extension is missing");
             return;
         }
         elseif($TargtedStore != ''){
@@ -190,7 +194,7 @@ class AppsScraper
      * 
      * @return  bool
      */
-    public function Initialized(){
+    public function Initialized(): bool{
         return $this->Initialized;
     }
     // --------------------------------------------------------------------
@@ -200,7 +204,7 @@ class AppsScraper
      * 
      * @return  array
      */
-    public static function GetAppStores(){
+    public static function GetAppStores(): array{
         return array_keys(self::$AppStores);
     }
 
@@ -208,12 +212,12 @@ class AppsScraper
 
     /**
      * Return the AppData (After Scraping)
-     * $AppData is encapsulated by this Method (Pseudo Readonly)
+     * $AppData is encapsulated by this Method (Readonly)
      * 
      * @see $AppData
      * @return  array
      */
-    public function GetAppData(){
+    public function GetAppData(): array{
         return $this->AppData;
     }
 
@@ -228,7 +232,7 @@ class AppsScraper
      * @param   string  $Error
      * @return  void
      */
-    protected function SetError($Error){
+    protected function SetError(string $Error): void{
         $this->Errors[] = $Error;
         if($this->Debug === true){
             trigger_error($Error);
@@ -242,7 +246,7 @@ class AppsScraper
      * 
      * @return  array
      */
-    public function GetErrors(){
+    public function GetErrors(): array{
         return $this->Errors; 
     }
 
@@ -250,31 +254,42 @@ class AppsScraper
 
     /**
      * Return the AppData (After Scraping)
-     * $AppData is encapsulated by this Method (Pseudo Readonly)
+     * After fetching the HTTP response by $this->LoadUrl()
+     * Now it's time for parsing the response to extract the data we need 
+     * Note: all App stores usess https://schema.org/SoftwareApplication schema 
      * 
      * @see $AppData
-     * @return  array
      */
-    protected function LoadAppData(){
-        $DomNode = '';
-        foreach($this->AppStores[$this->TargtedStore]['elements'] as $k => $v){
-            // Note: we can use php7.2+ '??' Null Coalescing Operator But we need this class to be compatible with older versions
-            $tempVar = '';
-            $DomNode = $this->Dom->find($v);
-            if(strpos($v,'img') !== FALSE){
-                $tempVar = $DomNode[0]->src;
-                $this->AppData[$k] = (!empty($tempVar)) ? $tempVar: null;
-            }elseif(strpos($v,'meta') !== FALSE){
-                $tempVar = $DomNode[0]->content;
-                $this->AppData[$k] = (!empty($tempVar)) ? $tempVar: null;
+    protected function LoadAppData(): void{
+ 
+        $schema  = $this->AppStores[$this->TargtedStore]['schema'];
+        $json_string = $this->Dom->filter($schema)->getInnerHtml();
+        $json    = json_decode($json_string,true); 
+        foreach($this->AppData as $k => $v)
+        {
+            // If data is in the Schema JSON just store it in $this->AppData
+            if(isset($json[$k])){
+                $this->AppData[$k] = $json[$k];
+                
             }else{
-                $tempVar = $DomNode[0]->plaintext;
-                $this->AppData[$k] = (!empty($tempVar)) ? $tempVar: null;
-            }
+                // If not check if we looking to price or not  
 
-            // For price it's make more seance if you use 0 ruther then null (GooglePlay)
-            if($k == "price" && $this->AppData[$k] == null){
-                $this->AppData[$k] = 0;
+                if($k == 'price'){
+                    /** 
+                     * Some appstores (i.e GooglePlay) store price in diffrent way
+                     * Inside the Schema json and we have handle it 
+                     * 
+                    */ 
+                   switch($this->TargtedStore){
+                    case "GooglePlay":
+                        $this->AppData[$k] = $json['offers'][0]['price'];
+
+                        break;
+                    case "AppStore":
+                        $this->AppData[$k] = $json['offers']['price'];
+                        break;
+                   }
+                }
             }
         }
     }
@@ -289,7 +304,7 @@ class AppsScraper
      * @see $AppStores
      * @return  mixed
      */
-    protected function DetectAppStore($AppId){
+    protected function DetectAppStore(string $AppId){
         foreach($this->AppStores as $k => $v){
             if(preg_match($this->AppStores[$k]['regex'],$AppId)){
                 $this->TargtedStore = $k;
@@ -308,7 +323,7 @@ class AppsScraper
      * @see $TargtedStore
      * @return  string
      */
-    public function GetTargtedStore(){
+    public function GetTargtedStore(): string{
         return $this->TargtedStore;
     }
 
@@ -317,10 +332,11 @@ class AppsScraper
     /**
      * Compare Scraped AppData By user-defined data
      * Useful for check if app data is old (image, title, etc..)
-     * 
+     * By providing current AppData with the new fetched 
+     * @param $AppData
      * @return  bool
      */
-    public function CompareData($AppData){
+    public function CompareData(array $AppData): bool{
         // NOTE: in php to compare two arrays you should use array_diff for key-value compartion
         // @see https://stackoverflow.com/questions/901815/php-compare-array/12058251#12058251
         return !(array_diff($AppData, $this->AppData) || array_diff($this->AppData, $AppData));
@@ -337,7 +353,7 @@ class AppsScraper
      * @see $AppStores
      * @return  bool
      */
-    protected function CheckAppId($AppId){
+    protected function CheckAppId(string $AppId): bool{
         if(preg_match($this->AppStores[$this->TargtedStore]['regex'],$AppId)){
             return true;
         }
@@ -352,7 +368,7 @@ class AppsScraper
      * @see __destruct()
      * @return  void
      */
-    protected function Clear(){
+    protected function Clear(): void{
         $this->AcceptLanguage = null;
         $this->AppId = null;
         $this->AppUrl = null;
@@ -371,7 +387,7 @@ class AppsScraper
      * @link https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
      * @return  bool
      */
-    protected function LoadUrl($url)
+    protected function LoadUrl(string $url): bool
     {
         $arr = [];
         $ch = curl_init();
@@ -385,7 +401,7 @@ class AppsScraper
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, 0);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 20);
-        $arr['respone'] = curl_exec( $ch );
+        $arr['response'] = curl_exec( $ch );
         $arr['errno']   = curl_errno( $ch );
         $arr['errmsg']  = curl_error( $ch );
         $arr['header']  = curl_getinfo( $ch );
@@ -419,7 +435,8 @@ class AppsScraper
             return false;
         }
         
-        $this->Dom = HtmlDomParser::str_get_html($arr['respone']);
+        $this->Dom = new HtmlPageCrawler($arr['response']);
+
         return true;
         
     }

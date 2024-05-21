@@ -3,13 +3,14 @@
     "description": "to Scrap AppData from its own store This Class Used to Scrap data from app web page in the supported stores with no need to worry about different html page layout Also its have the ability to auto-detect the store from the app id without need to define it",
     "type": "library",
     "require": {
-        "sunra/php-simple-html-dom-parser": "^1.5",
-        "ext-curl": "*"
+
+        "ext-curl": "*",
+        "wa72/htmlpagedom": "^3.0"
     },
     "license": "MIT",
     "authors": [
         {
-            "name": "stren-12",
+            "name": "Sultan Aljohani <stren-12>",
             "email": "smagsf@gmail.com"
         }
     ],
